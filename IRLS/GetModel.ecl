@@ -4,6 +4,7 @@ IMPORT $.^ AS LR;
 IMPORT LR.Constants;
 IMPORT LR.Types;
 IMPORT $ AS IRLS;
+IMPORT STD.System.ThorLib;
 //Aliases for convenience
 AnyField     := Core_Types.AnyField;
 NumericField := Core_Types.NumericField;
@@ -40,31 +41,50 @@ EXPORT DATASET(Layout_Model)
   stats := LR.DataStats(independents, dependents, FALSE);
   wi_Map := RECORD
     t_work_item wi;
-    BOOLEAN run_local;
+    BOOLEAN run_global;
   END;
   wi_Map mark_wi(Data_Info di) := TRANSFORM
+    obs := MAX(di.independent_records, di.dependent_records);
+    dims := di.independent_fields + 1;
     SELF.wi := di.wi;
-    SELF.run_local := di.independent_fields*di.independent_fields < cap
-                  AND di.independent_records*di.independent_fields<cap;
+    SELF.run_global := dims*dims > cap OR obs*dims > cap;
   END;
-  process_map := PROJECT(stats, mark_wi(LEFT));
-  local_wi := process_map(run_local);
-  global_wi := process_map(NOT run_local);
-  // partition data
-  local_dep := JOIN(dependents, local_wi, LEFT.wi=RIGHT.wi,
-                    TRANSFORM(DiscreteField, SELF:=LEFT), LOOKUP, FEW);
-  local_ind := JOIN(independents, local_wi, LEFT.wi=RIGHT.wi,
-                    TRANSFORM(NumericField, SELF:=LEFT), LOOKUP, FEW);
-  global_dep:= JOIN(dependents, global_wi, LEFT.wi=RIGHT.wi,
-                    TRANSFORM(DiscreteField, SELF:=LEFT), LOOKUP, FEW);
-  global_ind:= JOIN(independents, global_wi, LEFT.wi=RIGHT.wi,
-                    TRANSFORM(NumericField, SELF:=LEFT), LOOKUP, FEW);
+  raw_map := PROJECT(stats, mark_wi(LEFT));
+  // Count cases
+  cases := TABLE(raw_map, {globals:=SUM(GROUP, IF(run_global, 1, 0)),
+                               locals:=SUM(GROUP, IF(run_global, 0, 1))},
+                 FEW, UNSORTED);
+  all_globals := EXISTS(cases(globals>0));
+  wi_Map update_map(wi_Map wim, RECORDOF(cases) s) := TRANSFORM
+    SELF.run_global := MAP(s.globals=0                  => FALSE,
+                           s.locals>ThorLib.nodes()/2   => wim.run_global,
+                           TRUE);
+    SELF := wim;
+  END;
+  process_map := JOIN(raw_map, cases, TRUE, update_map(LEFT,RIGHT), ALL);
+  // divide inputs
+  local_ind := JOIN(independents, process_map(NOT run_global),
+                    LEFT.wi=RIGHT.wi,
+                    TRANSFORM(NumericField, SELF:=LEFT),
+                    LOOKUP);
+  local_dep := JOIN(dependents, process_map(NOT run_global),
+                    LEFT.wi=RIGHT.wi,
+                    TRANSFORM(DiscreteField, SELF:=LEFT),
+                    LOOKUP);
+  global_ind := JOIN(independents, process_map(run_global),
+                     LEFT.wi=RIGHT.wi,
+                     TRANSFORM(NumericField, SELF:=LEFT),
+                     LOOKUP);
+  global_dep := JOIN(dependents, process_map(run_global),
+                    LEFT.wi=RIGHT.wi,
+                    TRANSFORM(DiscreteField, SELF:=LEFT),
+                    LOOKUP);
   // process data
   local_model := IRLS.getModel_local(local_ind, local_dep,
                                      max_iter, epsilon, ridge);
   global_model:= IRLS.getModel_global(global_ind, global_dep,
                                       max_iter, epsilon, ridge);
-  rslt := IF(EXISTS(local_wi), local_model)
-        + IF(EXISTS(global_wi), global_model);
+  rslt := IF(EXISTS(process_map(run_global)), global_model)
+        + IF(EXISTS(process_map(NOT run_global)), local_model);
   RETURN rslt;
 END;

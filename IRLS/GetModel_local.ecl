@@ -1,8 +1,8 @@
 IMPORT ML_Core;
 IMPORT ML_Core.Types AS Core_Types;
 IMPORT $.^ AS LR;
-IMPORT $.^.Constants;
-IMPORT $.^.Types;
+IMPORT LR.Constants;
+IMPORT LR.Types;
 IMPORT $ AS IRLS;
 IMPORT Std;
 IMPORT Std.BLAS AS BLAS;
@@ -41,9 +41,11 @@ Part := RECORD
   UNSIGNED4 correct := 0;
   UNSIGNED4 incorrect := 0;
 END;
-Ext_NumericField := RECORD(NumericField)
+Ext_NumFld := RECORD(NumericField)
   dimension_t part_rows;
   dimension_t part_cols;
+  UNSIGNED4 inserts;
+  BOOLEAN dropMe;
 END;
 REAL8 Bernoulli_EV(REAL8 v) := 1.0/(1.0+exp(-v));
 value_t u_i(value_t v,
@@ -58,7 +60,9 @@ value_t abs_v(value_t v,
 value_t sig_v(value_t v,
               dimension_t r,
               dimension_t c) := IF(v>=0.5, 1, 0);
-
+value_t init_logit(value_t v,
+                   dimension_t r,
+                   dimension_t c) := IF(v=1, LN(1.5/.5), LN(.5/1.5));
 /**
  * Internal function to determine values for the model co-efficients
  * and selected stats from building the model.
@@ -76,6 +80,11 @@ EXPORT DATASET(Layout_Model)
                UNSIGNED2 max_iter=200,
                REAL8 epsilon=Constants.default_epsilon,
                REAL8 ridge=Constants.default_ridge) := FUNCTION
+  // check that id and number are 1 and up
+  ind_screen := ASSERT(independents, id>0 AND number>0,
+                       'Column left of 1 in Ind or a row 0', FAIL);
+  dep_screen := ASSERT(dependents, id>0 and number>0,
+                       'Column left of 1 in Dep or a row 0', FAIL);
   // work item re-map for multiple column dependents and replicate
   wi_info := RECORD
     t_work_item orig_wi;
@@ -87,7 +96,7 @@ EXPORT DATASET(Layout_Model)
     UNSIGNED4 ind_rows;
     UNSIGNED4 orig_col;
   END;
-  dcols := TABLE(dependents, {wi, number, max_id:=MAX(GROUP, id), col:=1},
+  dcols := TABLE(dep_screen, {wi, number, max_id:=MAX(GROUP, id), col:=1},
                  wi, number, FEW, UNSORTED);
   dep_map := PROJECT(GROUP(SORT(dcols, wi, number), wi),
                      TRANSFORM(RECORDOF(dcols),
@@ -96,7 +105,7 @@ EXPORT DATASET(Layout_Model)
   dep_cols := TABLE(dep_map,
                    {wi,r:=MAX(GROUP,max_id), c:=MAX(GROUP,col)},
                    wi, FEW, UNSORTED);
-  ind_cols := TABLE(independents,
+  ind_cols := TABLE(ind_screen,
                     {wi, r:=MAX(GROUP,id), c:=MAX(GROUP,number)},
                     wi, FEW, UNSORTED);
   wi_info cmb(RECORDOF(ind_cols) ind, RECORDOF(dep_cols) dep):=TRANSFORM
@@ -128,77 +137,69 @@ EXPORT DATASET(Layout_Model)
                            SELF:=LEFT),
                  LOOKUP, FEW);
   dist_wi := SORT(DISTRIBUTE(map_wi, wi), wi, LOCAL);
-  // replicate independents, insert constant column, add zero elements
-  ind_c1 := NORMALIZE(dist_wi, LEFT.ind_rows,
-                      TRANSFORM(Ext_NumericField,
-                                SELF.wi := LEFT.wi,
-                                SELF.value := 1,
-                                SELF.number := 1,
-                                SELF.part_rows := LEFT.ind_rows,
-                                SELF.part_cols := LEFT.ind_cols,
-                                SELF.id := COUNTER));
-  ind_c2 := DISTRIBUTE(JOIN(independents, map_wi,
-                            LEFT.wi=RIGHT.orig_wi,
-                            TRANSFORM(Ext_NumericField,
-                                      SELF.wi := RIGHT.wi,
-                                      SELF.number:=LEFT.number+1,
-                                      SELF.part_rows := RIGHT.ind_rows,
-                                      SELF.part_cols := RIGHT.ind_cols,
-                                      SELF:=LEFT),
-                            LOOKUP, MANY, FEW),
-                       wi);
-  ind_zero := NORMALIZE(dist_wi, LEFT.ind_rows*LEFT.ind_cols,
-                        TRANSFORM(Ext_NumericField,
-                          SELF.wi := LEFT.wi,
-                          SELF.id := ((COUNTER-1)%LEFT.ind_rows)+1,
-                          SELF.number:=((COUNTER-1) DIV LEFT.ind_rows)+1,
-                          SELF.part_rows := LEFT.ind_rows,
-                          SELF.part_cols := LEFT.ind_cols,
-                          SELF.value := 0));
-  ind_dist := ROLLUP(SORT(ind_c1+ind_c2+ind_zero, wi, number, id, LOCAL),
-                     TRANSFORM(Ext_NumericField,
-                               SELF.value := IF(LEFT.value<>0,
-                                                LEFT.value,
-                                                RIGHT.value),
-                               SELF:=LEFT),
-                     wi, number, id, LOCAL);
-  ind_grp := GROUP(ind_dist, wi, LOCAL);
-  ind_mat := ROLLUP(ind_grp, GROUP,
-                    TRANSFORM(Part,
-                              SELF.mat:=SET(ROWS(LEFT), value),
-                              SELF := LEFT));
+  // generate end records for inserts of missing values
+  Ext_NumFld gen_end(wi_info wif, UNSIGNED c, BOOLEAN isDep):=TRANSFORM
+    SELF.wi := wif.wi;
+    SELF.id := MAX(wif.dep_rows, wif.ind_rows);
+    SELF.value := 0;
+    SELF.number := c;
+    SELF.dropMe := TRUE;
+    SELF.inserts := 0;
+    SELF.part_rows := MAX(wif.dep_rows, wif.ind_rows);
+    SELF.part_cols := IF(isDep, 1, wif.ind_cols);
+  END;
+  end_dep := PROJECT(dist_wi, gen_end(LEFT, 1, TRUE));
+  end_ind := NORMALIZE(dist_wi, LEFT.ind_cols-1, gen_end(LEFT, COUNTER, FALSE));
+  // transforms to expand records, find inserts, insert missing zeros, and roll to Partition
+  Ext_NumFld exp_nf(NumericField nf, wi_info wif, BOOLEAN isDep):=TRANSFORM
+    SELF.wi := wif.wi;
+    SELF.part_rows := MAX(wif.dep_rows, wif.ind_rows);
+    SELF.part_cols := IF(isDep, 1, wif.ind_cols);
+    SELF.number := IF(isDep, 1, nf.number);
+    SELF.inserts := 0;
+    SELF.dropMe := FALSE;
+    SELF := nf;
+  END;
+  Ext_NumFld inserts(Ext_NumFld prev, Ext_NumFld curr, BOOLEAN isDep):=TRANSFORM
+    SELF.inserts := IF(prev.id=curr.id, 0, curr.id - prev.id - 1);
+    SELF.dropMe := prev.id=curr.id;
+    SELF := curr;
+  END;
+  Ext_NumFld insert_zeros(Ext_NumFld base, UNSIGNED c):=TRANSFORM
+    insertZero := c <= base.inserts;
+    SELF.value := IF(insertZero, 0, base.value);
+    SELF.id := base.id - base.inserts + c - 1;
+    SELF := base;
+  END;
+  Part roll_nf(Ext_NumFld nf, DATASET(Ext_NumFld) rws, BOOLEAN isDep):=TRANSFORM
+    ones := make_vector(nf.part_rows, 1.0);
+    SELF.mat := IF(isDep, SET(rws, value), ones+SET(rws, value));
+    SELF := nf;
+  END;
+  // replicate independents for multiple dependents
+  repl_ind := JOIN(ind_screen, map_wi, LEFT.wi=RIGHT.orig_wi,
+                    exp_nf(LEFT, RIGHT, FALSE), LOOKUP, MANY, FEW);
+  dist_ind := DISTRIBUTE(repl_ind, wi);
+  srtd_ind := SORT(dist_ind+end_ind, wi, number, id, dropMe, LOCAL);
+  grpd_ind := GROUP(srtd_ind, wi, number, LOCAL);
+  mrkd_ind := ITERATE(grpd_ind, inserts(LEFT, RIGHT, FALSE));
+  full_ind := NORMALIZE(mrkd_ind(NOT dropMe), LEFT.inserts+1,
+                        insert_zeros(LEFT, COUNTER));
+  rr_ind := GROUP(full_ind, wi, LOCAL);
+  ind_mat := ROLLUP(rr_ind, GROUP, roll_nf(LEFT, ROWS(LEFT), FALSE));
   // re-map Y matrix to multiple vectors and fluff with zeros
-  dep_v := DISTRIBUTE(JOIN(dependents, map_wi,
-                           LEFT.wi=RIGHT.orig_wi
-                           AND LEFT.number=RIGHT.orig_col,
-                           TRANSFORM(Ext_NumericField,
-                                     SELF.number := 1,
-                                     SELF.part_rows := RIGHT.dep_rows,
-                                     SELF.part_cols := 1,
-                                     SELF.wi := RIGHT.wi,
-                                     SELF := LEFT),
-                           LOOKUP, FEW),
-                      wi);
-  dep_0 := NORMALIZE(dist_wi, LEFT.dep_rows,
-                     TRANSFORM(Ext_NumericField,
-                               SELF.wi := LEFT.wi,
-                               SELF.id := COUNTER,
-                               SELF.number := 1,
-                               SELF.part_rows := LEFT.dep_rows,
-                               SELF.part_cols := 1,
-                               SELF.value := 0));
-  dep_dist := ROLLUP(SORT(dep_v+dep_0, wi, number, id, LOCAL),
-                     TRANSFORM(Ext_NumericField,
-                               SELF.value := IF(LEFT.value<>0,
-                                                LEFT.value,
-                                                RIGHT.value),
-                               SELF := LEFT),
-                      wi, number, id, LOCAL);
-  dep_grp := GROUP(dep_dist, wi, LOCAL);
-  dep_mat := ROLLUP(dep_grp, GROUP,
-                    TRANSFORM(Part,
-                              SELF.mat:=SET(ROWS(LEFT), value),
-                              SELF := LEFT));
+  input_dep := PROJECT(dep_screen, NumericField);
+  expd_dep := JOIN(input_dep, map_wi,
+                   LEFT.wi=RIGHT.orig_wi AND LEFT.number=RIGHT.orig_col,
+                   exp_nf(LEFT, RIGHT, TRUE), LOOKUP, FEW);
+  dist_dep := DISTRIBUTE(expd_dep, wi);
+  srtd_dep := SORT(dist_dep+end_dep, wi, number, id, dropMe, LOCAL);
+  grpd_dep := GROUP(srtd_dep, wi, LOCAL);
+  mrkd_dep := ITERATE(grpd_dep, inserts(LEFT, RIGHT, TRUE));
+  full_dep := NORMALIZE(mrkd_dep(NOT dropMe), LEFT.inserts+1,
+                        insert_zeros(LEFT, COUNTER));
+  rr_dep := GROUP(full_dep, wi, LOCAL);
+  dep_mat := ROLLUP(rr_dep, GROUP, roll_nf(LEFT, ROWS(LEFT), TRUE));
   // Define Ridge diagonal matrix
   Part makeRidge(wi_info wif) := TRANSFORM
     SELF.mat := make_diag(wif.ind_cols, ridge);
@@ -264,7 +265,8 @@ EXPORT DATASET(Layout_Model)
                  SORTED(wi), LOCAL);
     RETURN rslt;
   END;
-  calc_B := LOOP(init_B, epsilon<LEFT.max_delta AND max_iter>LEFT.iterations,
+  calc_B := LOOP(init_B,
+                 epsilon<LEFT.max_delta AND max_iter>LEFT.iterations,
                  iter0(ROWS(LEFT), COUNTER));
   // Capture model statistics, multiple responses are still multiple wi
   // Betas and SE for betas, Iterations, last delta, ciorrect, incorrect
@@ -304,7 +306,7 @@ EXPORT DATASET(Layout_Model)
                              Constants.base_ind_vars,
                              Constants.base_dep_vars,
                              Constants.base_obs);
-    SELF.value := CHOOSE(f, 1,
+    SELF.value := CHOOSE(f, Constants.builder_irls_local,
                             max_iter,
                             epsilon,
                             w.ind_cols-1,
@@ -312,37 +314,5 @@ EXPORT DATASET(Layout_Model)
                             MAX(w.dep_rows, w.ind_rows));
   END;
   base_data := NORMALIZE(cmb_cols, 6, extBase(LEFT, COUNTER));
-  // debug
-  has_wi := PROJECT(dist_wi, TRANSFORM(Layout_Model,
-                              SELF.wi:=LEFT.wi,
-                              SELF.id:=0;
-                              SELF.number:=10;
-                              SELF.value:=Std.System.thorlib.node()));
-  has_calc := PROJECT(calc_B, TRANSFORM(Layout_Model,
-                                SELF.wi:=LEFT.wi,
-                                SELF.id:=0,
-                                SELF.number:=11,
-                                SELF.value:=Std.System.thorlib.node()));
-  has_init := PROJECT(init_B, TRANSFORM(Layout_Model,
-                                SELF.wi:=LEFT.wi,
-                                SELF.id:=0,
-                                SELF.number:=12,
-                                SELF.value:=Std.System.thorlib.node()));
-  has_ind  := PROJECT(ind_mat, TRANSFORM(Layout_Model,
-                                SELF.wi:=LEFT.wi,
-                                SELF.id:=0,
-                                SELF.number:=13,
-                                SELF.value:=Std.System.thorlib.node()));
-  has_dep  := PROJECT(dep_mat, TRANSFORM(Layout_Model,
-                                SELF.wi:=LEFT.wi,
-                                SELF.id:=0,
-                                SELF.number:=14,
-                                SELF.value:=Std.System.thorlib.node()));
-  has_R     := PROJECT(R_mat, TRANSFORM(Layout_Model,
-                                SELF.wi:=LEFT.wi,
-                                SELF.id:=0,
-                                SELF.number:=15,
-                                SELF.value:=Std.System.thorlib.node()));
-  db := has_wi + has_calc + has_init + has_ind + has_dep + has_R;
-  RETURN base_data + var_data + db;
+  RETURN base_data + var_data;
 END;

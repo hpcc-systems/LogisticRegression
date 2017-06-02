@@ -1,100 +1,37 @@
 //*******************************************************
-num_work_items := 40;
-avg_size := 40000;
+num_work_items := 1;
+avg_size := 2000000;
+columns := 1000;
+max_iterations := 50;
 //*******************************************************
 IMPORT $.^ AS LR;
+IMPORT $ AS Perf;
 IMPORT ML_Core.Types AS Core_Types;
 NumericField := Core_Types.NumericField;
 DiscreteField := Core_Types.DiscreteField;
 lcl := LR.Constants.builder_irls_local;
 gbl := LR.Constants.builder_irls_global;
 
-Model_Seed := RECORD
-  REAL8 f1_yes;
-  REAL8 f1_no;
-  REAL8 f1_rng;
-  REAL8 f2_yes;
-  REAL8 f2_no;
-  REAL8 f2_rng;
-  REAL8 f3_yes;
-  REAL8 f3_no;
-  REAL8 f3_rng;
-  REAL8 f4_yes;
-  REAL8 f4_no;
-  REAL8 f4_rng;
-END;
-Observation := RECORD
-  UNSIGNED4 wi;
-  UNSIGNED4 id;
-  INTEGER resp;
-  REAL8 f1;
-  REAL8 f2;
-  REAL8 f3;
-  REAL8 f4;
-END;
-seeds := DATASET([{ 20,   5,   5, 300,   5,  50,  10, 100,  10,  10,   1,   2},
-                  {800, 900,  10,  10,   8,   5,  90, 900,  20, 100,   1,   1}
-                 ], Model_Seed);
-Enum_Seed := RECORD(Model_Seed)
-  UNSIGNED id;
-END;
-e_seeds := PROJECT(seeds, TRANSFORM(Enum_Seed, SELF.id:=COUNTER, SELF:=LEFT));
-Base := RECORD
-  UNSIGNED4 wi;
-  UNSIGNED4 size;
-  UNSIGNED4 seed;
-  Model_Seed;
-END;
-Base make_base(UNSIGNED c) := TRANSFORM
-  SELF.wi := c;
-  SELF.size := MAX(avg_size - 999 + RANDOM()%2000, 10);
-  SELF.seed := 1 + RANDOM() % COUNT(seeds);    // draw a seed
-  SELF := [];
-END;
-bases := DISTRIBUTE(DATASET(num_work_items, make_base(COUNTER)), wi);
-Base extend_base(Base br, Enum_Seed es) := TRANSFORM
-  SELF := es;
-  SELF := br;
-END;
-ex_bases := JOIN(bases, e_seeds, LEFT.seed=RIGHT.id,
-                 extend_base(LEFT, RIGHT), LOOKUP) : ONWARNING(1005,ignore);
-
-REAL8 delta(REAL8 y) := (((RANDOM()%100)/100) - 0.5)*y;
-Observation make_obs(Base br, UNSIGNED c) := TRANSFORM
-  SELF.wi := br.wi;
-  SELF.id := c;
-  SELF.resp := c%2;
-  SELF.f1 := IF(c%2=0, br.f1_yes, br.f1_no) + delta(br.f1_rng);
-  SELF.f2 := IF(c%2=0, br.f2_yes, br.f2_no) + delta(br.f2_rng);
-  SELF.f3 := IF(c%2=0, br.f3_yes, br.f3_no) + delta(br.f3_rng);
-  SELF.f4 := IF(c%2=0, br.f4_yes, br.f4_no) + delta(br.f4_rng);
-END;
-obs := NORMALIZE(ex_bases, LEFT.size, make_obs(LEFT, COUNTER));
-
-t0 := TABLE(obs, {wi, resp, num:=COUNT(GROUP),
-                  f1_avg:=AVE(GROUP,f1), f1_var:=SQRT(VARIANCE(GROUP,f1)),
-                  f2_ave:=AVE(GROUP,f2), f2_var:=SQRT(VARIANCE(GROUP,f2)),
-                  f3_ave:=AVE(GROUP,f3), f3_var:=SQRT(VARIANCE(GROUP,f3)),
-                  f4_ave:=AVE(GROUP,f4), f4_var:=SQRT(VARIANCE(GROUP,f4))},
-                  wi, resp, MERGE);
-DiscreteField get_resp(Observation ob) := TRANSFORM
-  SELF.value := ob.resp;
-  SELF.number := 1;
-  SELF := ob;
-END;
-resp_data := PROJECT(obs, get_resp(LEFT));
-
-NumericField get_ind(Observation ob, UNSIGNED c) := TRANSFORM
-  SELF.number := c;
-  SELF.value := CHOOSE(c, ob.f1, ob.f2, ob.f3, ob.f4);
-  SELF := ob;
-END;
-ind_data := NORMALIZE(obs, 4, get_ind(LEFT, COUNTER));
+obs := Perf.GenData(num_work_items, columns, avg_size, 2, TRUE) : INDEPENDENT;
+resp_data := PROJECT(obs, TRANSFORM(DiscreteField, SELF:=LEFT.resp_var));
+ind_data := NORMALIZE(obs, LEFT.explan_vars, TRANSFORM(NumericField, SELF:=RIGHT));
+// Data stats
+ds_tab := TABLE(obs,
+      {wi, cls:=resp_var.value,
+       REAL8 min_explan:=MIN(GROUP, SUM(explan_vars, value)),
+       REAL8 max_explan:=MAX(GROUP, SUM(explan_vars, value)),
+       REAL8 ave_explan:=AVE(GROUP, SUM(explan_vars, value)),
+       REAL8 sd_explan:=SQRT(VARIANCE(GROUP,SUM(explan_vars, value)))},
+      wi, resp_var.value, FEW, UNSORTED);
+test_data := OUTPUT(SORT(ds_tab, wi, cls), NAMED('Test_Stats'));
 // Run it
-LR_module := LR.BinomialLogisticRegression();
+LR_module := LR.BinomialLogisticRegression(max_iterations);
 mod := LR_module.GetModel(ind_data, resp_data);
 reports := LR.ExtractReport(mod);
-rpt_samples := OUTPUT(ENTH(reports,100), NAMED('Sample_Reports'));
+conf_det := LR_module.Report(mod, ind_data, resp_data);
+conf_rpt := LR.BinomialConfusion(conf_det);
+confusion_report := OUTPUT(ENTH(conf_rpt, 100), NAMED('Sample_Confusion_Report'));
+rpt_smpls := OUTPUT(ENTH(reports,100), NAMED('Sample_Reports'));
 bad_reports := reports(NOT EXISTS(stats));
 bad := OUTPUT(CHOOSEN(bad_reports, 50), NAMED('No_Stats'));
 f_tab := TABLE(reports,
@@ -104,8 +41,39 @@ f_tab := TABLE(reports,
                ave_iter:=AVE(GROUP, AVE(stats, iterations)),
                min_iter:=MIN(GROUP, MIN(stats, iterations)),
                max_iter:=MAX(GROUP, MAX(stats, iterations)),
+               converged:=SUM(GROUP, COUNT(stats(max_delta<=0.00000001))),
+               perfect:=SUM(GROUP, COUNT(stats(incorrect=0))),
                local_IRLS:=SUM(GROUP,IF(builder=lcl, 1, 0)),
                global_IRLS:=SUM(GROUP,IF(builder=gbl, 1, 0))},
               FEW, UNSORTED);
 f_stat := OUTPUT(f_tab, NAMED('Run_stats'));
-EXPORT RunBinomial := PARALLEL(f_stat, rpt_samples, bad);
+wrec := {RECORDOF(ind_data), UNSIGNED cls};
+lbl_data := NORMALIZE(obs, LEFT.explan_vars,
+                      TRANSFORM(wrec, SELF.cls:=LEFT.resp_var.value, SELF:=RIGHT));
+lbl_tab := TABLE(lbl_data, {wi, number, cls,
+                            var:=VARIANCE(GROUP,value),
+                            av:=AVE(GROUP, value),
+                            mn:=MIN(GROUP, value),
+                            mx:=MAX(GROUP, value)},
+                 wi, number, cls, FEW, UNSORTED);
+ rng_tab := TABLE(lbl_tab, {wi, number,
+                            c0_mn:=MAX(GROUP, IF(cls=0, mn, 0)),
+                            c0_mx:=MAX(GROUP, IF(cls=0, mx, 0)),
+                            c1_mn:=MAX(GROUP, IF(cls=1, mn, 0)),
+                            c1_mx:=MAX(GROUP, IF(cls=1, mx, 0))},
+                   wi, number, FEW, UNSORTED);
+ overlap(REAL8 r0a, REAL8 r0b, REAL8 r1a, REAL8 r1b) :=
+                  r0a BETWEEN r1a AND r1b OR r0b BETWEEN r1a AND r1b
+               OR r1a BETWEEN r0a AND r0b OR r1b BETWEEN r0a AND r0b;
+ rng_rpt := TABLE(rng_tab,
+                 {wi, BOOLEAN converged:=FALSE,
+                  sep:=SUM(GROUP, IF(c0_mx<c1_mn OR c0_mn>c1_mx, 1, 0)),
+                  mrg:=SUM(GROUP, IF(overlap(c0_mn, c0_mx, c1_mn, c1_mx),1,0))},
+                 wi, FEW, UNSORTED);
+ selected := JOIN(rng_rpt, reports, LEFT.wi=RIGHT.wi,
+                  TRANSFORM(RECORDOF(rng_rpt),
+                            SELF.converged:=EXISTS(RIGHT.stats(max_delta<=0.00000001)),
+                            SELF:=LEFT),
+                  LOOKUP);
+ sel_rpt := OUTPUT(TOPN(selected, 200, converged, wi), ALL, NAMED('Select_Report'));
+EXPORT RunBinomial := PARALLEL(f_stat, rpt_smpls, bad);
