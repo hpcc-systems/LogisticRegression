@@ -1,16 +1,15 @@
 IMPORT ML_Core.Types AS Core_Types;
-//Aliases for convenience
-AnyField     := Core_Types.AnyField;
-NumericField := Core_Types.NumericField;
-DiscreteField:= Core_Types.DiscreteField;
-Layout_Model := Core_Types.Layout_Model;
-t_work_item  := Core_Types.t_work_item;
-t_RecordID   := Core_Types.t_RecordID;
-t_FieldNumber:= Core_Types.t_FieldNumber;
-t_FieldReal  := Core_Types.t_FieldReal;
-t_Discrete   := Core_Types.t_discrete;
 
 EXPORT Types := MODULE
+  EXPORT AnyField     := Core_Types.AnyField;
+  EXPORT NumericField := Core_Types.NumericField;
+  EXPORT DiscreteField:= Core_Types.DiscreteField;
+  EXPORT Layout_Model := Core_Types.Layout_Model;
+  EXPORT t_work_item  := Core_Types.t_work_item;
+  EXPORT t_RecordID   := Core_Types.t_RecordID;
+  EXPORT t_FieldNumber:= Core_Types.t_FieldNumber;
+  EXPORT t_FieldReal  := Core_Types.t_FieldReal;
+  EXPORT t_Discrete   := Core_Types.t_discrete;
   EXPORT t_Universe := UNSIGNED1;
   EXPORT Field_Desc := RECORD
     t_FieldNumber number;   // the column
@@ -94,6 +93,30 @@ EXPORT Types := MODULE
     REAL8 z;
     REAL8 p_value;
   END;
+  EXPORT Full_Model_Coef := RECORD(Model_Coef)
+    REAL8 z;
+    REAL8 p_value;
+    REAL8 upper;
+    REAL8 lower;
+  END;
+  EXPORT External_Coef := RECORD
+    BOOLEAN isIntercept;
+    STRING field_name;
+    t_FieldReal w;
+    t_FieldReal SE;
+    REAL8 z;
+    REAL8 p_value;
+    REAL8 upper;
+    REAL8 lower;
+    t_FieldNumber ind_col;
+  END;
+  EXPORT External_Model := RECORD
+    STRING work_item;
+    STRING response_field;
+    t_work_item wi;
+    t_FieldNumber dep_nom;
+    DATASET(External_Coef) coef;
+  END;
   EXPORT Raw_Prediction := RECORD(AnyField)
     REAL8 raw;
   END;
@@ -125,5 +148,23 @@ EXPORT Types := MODULE
     REAL8 residual_dev;
     REAL8 deviance;
     REAL8 p_value;
+  END;
+  EXPORT FieldName_Mapping := RECORD
+    STRING orig_name;
+    STRING assigned_name;
+  END;
+  EXPORT WorkItem_Mapping := RECORD
+    t_work_item wi;
+    STRING orig_wi;
+  END;
+  EXPORT LUCI_Rec := RECORD
+    STRING line;
+  END;
+  EXPORT LUCI_Model_Rqst := RECORD
+    STRING model_id;        // model id
+    STRING model_name;      // name on L1MD
+    STRING response_field;  // name of the dependent field used in training
+    SET OF STRING wi_list;  // can be ALL or one or more work item names
+    STRING score_card_name; // score card name pattern
   END;
 END;
