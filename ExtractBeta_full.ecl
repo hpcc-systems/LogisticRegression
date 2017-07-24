@@ -1,5 +1,6 @@
 IMPORT $ AS LR;
 IMPORT LR.Types AS Types;
+IMPORT ML_Core.Math AS Core_Math;
 IMPORT ML_Core.Types AS Core_Types;
 // convenience aliases
 id_betas := LR.Constants.id_betas;
@@ -64,10 +65,10 @@ EXPORT DATASET(Types.Full_Model_Coef)
   rolled := ROLLUP(grp_b, roll_c(LEFT, RIGHT), wi, dep_nom, ind_col,
                  UNORDERED, UNSTABLE);
   Full_Coef decorate(Work coef) := TRANSFORM
-    margin := LR.Distributions.T_PPF((1.0-level)/2, coef.df);
+    margin := Core_Math.Distributions.T_PPF((1.0-level)/2, coef.df);
     Z := coef.w / coef.SE;
     SELF.z := Z;
-    SELF.p_value := 2*(1.0 - LR.Distributions.Normal_CDF(ABS(Z)));
+    SELF.p_value := 2*(1.0 - Core_Math.Distributions.Normal_CDF(ABS(Z)));
     SELF.upper := coef.w + margin*coef.SE;
     SELF.lower := coef.w - margin*coef.SE;
     SELF := coef;
