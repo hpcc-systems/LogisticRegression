@@ -1,5 +1,6 @@
 IMPORT $ AS LR;
 IMPORT LR.Types;
+IMPORT ML_Core.Math AS Core_Math;
 
 // aliases
 AOD := Types.AOD_Record;
@@ -29,7 +30,7 @@ EXPORT DATASET(Types.AOD_Record)
     SELF.residual_dev := p.deviance;
     SELF.df := df;
     SELF.deviance := dev;
-    SELF.p_value := 1.0 - LR.Distributions.Chi2_CDF(ABS(dev), df);
+    SELF.p_value := 1.0 - Core_Math.Distributions.Chi2_CDF(ABS(dev), df);
     SELF := p;
   END;
   c2 := JOIN(proposed, base,
