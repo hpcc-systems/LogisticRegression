@@ -13,18 +13,23 @@ Flat_Field_Desc := RECORD(Types.Field_Desc)
 END;
 
 /**
- * Information about the datasets.  Without details the range
- *for the x and y (independent and dependent) columns.  Note that
- *a column of all zero values cannot be distinguished from a missing
- *column.
- * When details are requested, the cardinality, minimum, and maximum
- *values are returned.  A zero cardinality is returned when the field
- *cardinality exceeds the Constants.limit_card value.
- * @param indep data set of independent variables
- * @param dep data set of dependent variables
- * @param field_details Boolean directive to provide field level info
- * @returns a data set of information on each work item
- */
+  * Produce summary information about the datasets.
+  * <p>When field_details = FALSE, indicates the range
+  * for the x and y (independent and dependent) columns.
+  * <p>When field_details = TRUE, the cardinality, minimum, and maximum
+  * values are returned.  A zero cardinality is returned when the field
+  * cardinality exceeds the Constants.limit_card value.
+  * <p>Note that
+  * a column of all zero values cannot be distinguished from a missing
+  * column.
+  *
+  * @param indep data set of independent variables.
+  * @param dep data set of dependent variables.
+  * @param field_details Boolean directive to provide field level info.
+  * @return a data set of information on each work item in Data_Info format.
+  * @see Types.Data_Info
+  * @see Constants.limit_card
+  */
 EXPORT DATASET(Types.Data_Info)
        DataStats(DATASET(Core_Types.NumericField) indep,
                   DATASET(Core_Types.DiscreteField) dep,

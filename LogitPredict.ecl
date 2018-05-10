@@ -9,12 +9,15 @@ Raw_Prediction := Types.Raw_Prediction;
 Model_Coef := Types.Model_Coef;
 
 /**
- * Predict the category values with the logit function and the
- * the supplied beta coefficients.
- * @param coef the model beta coefficients
- * @param independents the observations
- * @return the predicted category values and a confidence score
- */
+  * Predict the category values with the logit function and the
+  * the supplied beta coefficients.
+  * @param coef the model beta coefficients as returned from ExtractBeta.
+  * @param independents the observations.
+  * @return the predicted category values and a confidence score in Classify_Result
+  *         format.
+  * @see ExtractBeta
+  * @see ML_Core.Types.Classify_Result
+  */
 EXPORT DATASET(Classify_Result)
       LogitPredict(DATASET(Model_Coef) coef,
                     DATASET(NumericField) independents) := FUNCTION

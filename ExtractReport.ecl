@@ -24,9 +24,11 @@ Ex_Stats := RECORD(Stats)
   Core_Types.t_work_item wi;
 END;
 /**
- * Extract Report records from model
- * @param mod_ds the model dataset
- * @return the model report dataset
+ * Create a model report from a model.
+ *
+ * @param mod_ds the model as returned from GetModel.
+ * @return the model report in Model_Report format.
+ * @see Types.Model_Report
  */
 EXPORT DATASET(Types.Model_Report)
        ExtractReport(DATASET(Core_Types.Layout_Model) mod_ds):=FUNCTION
