@@ -10,11 +10,13 @@ id_base := LR.Constants.id_base;
 base_ind_vars := LR.Constants.base_ind_vars;
 Model_Coef := Types.Model_Coef;
 /**
- * Extract the beta values form the model dataset.
- * @param mod_ds the model dataset
- * @return a beta values as Model Coefficient records, zero as the constant
- * term.
- */
+  * Extract the beta values form the model dataset.
+  *
+  * @param mod_ds the model as returned from GetModel.
+  * @return the beta values as Model_Coef records, with zero as the constant
+  * term.
+  * @see Types.Model_Coef
+  */
 EXPORT ExtractBeta(DATASET(Core_Types.Layout_Model) mod_ds):=FUNCTION
   full := LR.ExtractBeta_full(mod_ds);
   rslt := PROJECT(full, Model_Coef);

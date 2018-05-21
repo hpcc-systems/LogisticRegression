@@ -1,6 +1,8 @@
-// Constants used by Logistic Regression.  Most of these are the
-//nominal values used by the Model data set.  A few are used to
-//control behavior.
+/**
+  * Constants used by Logistic Regression.  Most of these are the
+  * nominal values used by the Model data set.  A few are used to
+  * control behavior.
+  */
 EXPORT Constants := MODULE
   EXPORT UNSIGNED2 limit_card := 10000;  // upper limit for count
   EXPORT REAL8 default_epsilon := 0.00000001;

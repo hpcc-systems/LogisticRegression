@@ -7,28 +7,39 @@ External_model := Types.External_model;
 
 
 /**
- * LUCI model file description of the model or models from the external
- * version.  The multi-score card per model case assumes that the score
- * card selection is based solely upon the work item field.  If this is
- * not the case, the L1SE records will need to be patched.
- *
- * The model id and name may have a "$" character that is updated to
- * match the work item when there are multiple models applied.  If the
- * strings do not have a "$" character, the work item string is appended.
- *
- * The score card name may have a "$" character which is updated to
- * match the work item. If the name is blank, the score card is named
- * for the work item.
- *
- * LUCI data fields may not contain comma characters.  This function
- * requires that the work item identification strings do not contain
- * characters that need special handling for CSV data.
- *
- * @param rqst the information to map work items to models
- * @param mod the model with the external field names applied
- * @param wi_field the field name holding the work item identification
- * string
- */
+  * Create a LUCI model file description of the model(s) from the external
+  * version of the model.
+  *
+  * <p>LUCI is a proprietary format used within LexisNexis.
+  *
+  * <p>The multi-score card per model case assumes that the score
+  * card selection is based solely upon the work item field.  If this is
+  * not the case, the L1SE records will need to be patched.
+  *
+  * <p>The model id and name may have a "$" character that is updated to
+  * match the work item when there are multiple models applied.  If the
+  * strings do not have a "$" character, the work item string is appended.
+  *
+  * <p>The score card name may have a "$" character which is updated to
+  * match the work item. If the name is blank, the score card is named
+  * for the work item.
+  *
+  * <p>LUCI data fields may not contain comma characters.  This function
+  * requires that the work item identification strings do not contain
+  * characters that need special handling for CSV data.
+  *
+  * @param rqst the information to map work items to models in LUCI_Model_Rqst
+  *             format.
+  * @param mod the model with the external field names applied in External_Model
+  *            format as returned from Named_Model.
+  * @param wi_field the field name holding the work item identification
+  *                 string.
+  * @return The lines of the LUCI file in LUCI_Rec format.
+  * @see Types.External_Model
+  * @see Named_Model
+  * @see Types.LUCI_Model_Rqst
+  * @see Types.LUCI_Rec
+  */
 EXPORT DATASET(Types.LUCI_Rec)
       LUCI_Model(DATASET(Types.LUCI_Model_Rqst) rqst,
                  DATASET(Types.External_Model) mod,

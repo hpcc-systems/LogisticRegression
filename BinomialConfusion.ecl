@@ -8,11 +8,13 @@ t_FieldNumber := Core_Types.t_FieldNumber;
 t_Discrete := Core_Types.t_Discrete;
 
 /**
- * Binomial confusion matrix.  Work items with multinomial responses
+ * Calculate the binomial confusion matrix.  Work items with multinomial responses
  * are ignored by this function.  The higher value lexically is
  * considered to be the positive indication.
- * @param d confusion detail for the work item and classifier
- * @return confusion matrix for a binomial classifier
+ * @param d confusion detail for the work item and classifier.
+ * @return confusion matrix for a binomial classifier in Binomial_Confusion_Summary
+ *         format.
+ * @see Types.Binomial_Confusion_Summary
  */
 EXPORT DATASET(Types.Binomial_Confusion_Summary)
        BinomialConfusion(DATASET(Core_Types.Confusion_Detail) d) := FUNCTION

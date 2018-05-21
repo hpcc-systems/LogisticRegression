@@ -10,9 +10,12 @@ Model_Coef := Types.Model_Coef;
 /**
  * Calculate the score using the logit function and the
  * the supplied beta coefficients.
- * @param coef the model beta coefficients
- * @param independents the observations
- * @return the raw prediction value
+ *
+ * @param coef the model beta coefficients as returned from ExtractBetas.
+ * @param independents the observations.
+ * @return the raw prediction value in Raw_Prediction format.
+ * @see ExtractBetas
+ * @see Types.Raw_Prediction
  */
 EXPORT DATASET(Raw_Prediction)
       LogitScore(DATASET(Model_Coef) coef,

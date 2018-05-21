@@ -27,10 +27,14 @@ Work := RECORD(Full_Coef)
   REAL8 ind_vars;
 END;
 /**
- * Extract the coefficient information including confidence intervals
- * @param mod_ds the model information
- * @param level the significance value for the intervals
- * @return the coefficient information for the model
+ * Extract the coefficient information including confidence intervals,
+ * z and p values.
+ *
+ * @param mod_ds the model as returned from GetModel.
+ * @param level the significance value for the intervals.
+ * @return the coefficient information for the model in Full_Model_Coef format,
+ *         with zero as the constant term.
+ * @see Types.Full_Model_Coef
  */
 EXPORT DATASET(Types.Full_Model_Coef)
        ExtractBeta_full(DATASET(Core_Types.Layout_Model) mod_ds,

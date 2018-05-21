@@ -3,19 +3,21 @@ IMPORT Std.BLAS.Types AS Types;
 /**
  * Matrix multiply when either A or B is a diagonal and is passed
  * as a vector.
- * alpha*op(A) op(B) + beta*C where op() is transpose
- * @param transposeA true when transpose of A is used
- * @param transposeB true when transpose of B is used
- * @param diagonalA true when A is the diagonal matrix
- * @param diagonalB true when B is the diagonal matrix
- * @param m number of rows in product
- * @param n number of columns in product
- * @param k number of columns/rows for the multiplier/multiplicand
- * @param alpha scalar used on A
- * @param A matrix A
- * @param B matrix B
- * @param beta scalar for matrix C
- * @param C matrix C or empty
+ * <p>Computes: alpha*op(A) op(B) + beta*C where op() is transpose.
+ * @param transposeA true when transpose of A is used.
+ * @param transposeB true when transpose of B is used.
+ * @param diagonalA true when A is the diagonal matrix.
+ * @param diagonalB true when B is the diagonal matrix.
+ * @param m number of rows in product.
+ * @param n number of columns in product.
+ * @param k number of columns/rows for the multiplier/multiplicand.
+ * @param alpha scalar used on A.
+ * @param A matrix A.
+ * @param B matrix B.
+ * @param beta scalar for matrix C.
+ * @param C matrix C or empty.
+ * @return result matrix in matrix_t format.
+ * @see Std.BLAS.Types.matrix_t
  */
 
 EXPORT  Types.matrix_t
