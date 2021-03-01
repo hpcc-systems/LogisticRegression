@@ -73,8 +73,8 @@ EXPORT DATASET(Types.Full_Model_Coef)
     Z := coef.w / coef.SE;
     SELF.z := Z;
     SELF.p_value := 2*(1.0 - Core_Math.Distributions.Normal_CDF(ABS(Z)));
-    SELF.upper := coef.w + margin*coef.SE;
-    SELF.lower := coef.w - margin*coef.SE;
+    SELF.upper := coef.w - margin*coef.SE;
+    SELF.lower := coef.w + margin*coef.SE;
     SELF := coef;
   END;
   rslt := PROJECT(UNGROUP(rolled), decorate(LEFT));
