@@ -1,3 +1,7 @@
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
 IMPORT ML_Core;
 IMPORT ML_Core.Types AS Core_Types;
 IMPORT $ AS LR;
@@ -16,19 +20,12 @@ t_FieldReal  := Core_Types.t_FieldReal;
 t_Discrete   := Core_Types.t_Discrete;
 
 /**
-  * Deviance detail report. <p>Provides deviance information 
-  * for each observation.
-  *
-  * <p>Analysis of Deviance is analogous to the Analysis of Variance (ANOVA) used in
-  * least-squares modeling, but adapted to the general linear model (GLM).  In this case
-  * it is adapted specifically to the logistic model.
-  *
-  * @param dependents original dependent records for the model
-  * @param predicts the predicted values of the response variable
-  * @return the deviance information by observation and the log likelihood
-  * of the predicted result in Observation_Deviance format.
-  * @see Types.Observation_Deviance
-  */
+ * Detail deviance for each observation.
+ * @param dependents original dependent records for the model
+ * @param predicts the predicted values of the response variable
+ * @return the deviance information by observation and the log likelihood
+ * of the predicted result.
+ */
 EXPORT DATASET(Types.Observation_Deviance)
        Deviance_Detail(DATASET(Core_Types.DiscreteField) dependents,
                  DATASET(Types.Raw_Prediction) predicts) := FUNCTION

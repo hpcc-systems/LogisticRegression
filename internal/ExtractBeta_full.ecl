@@ -1,5 +1,10 @@
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
 IMPORT $ AS LR;
 IMPORT LR.Types AS Types;
+IMPORT ML_Core;
 IMPORT ML_Core.Math AS Core_Math;
 IMPORT ML_Core.Types AS Core_Types;
 // convenience aliases
@@ -27,18 +32,16 @@ Work := RECORD(Full_Coef)
   REAL8 ind_vars;
 END;
 /**
- * Extract the coefficient information including confidence intervals,
- * z and p values.
- *
- * @param mod_ds the model as returned from GetModel.
- * @param level the significance value for the intervals.
- * @return the coefficient information for the model in Full_Model_Coef format,
- *         with zero as the constant term.
- * @see Types.Full_Model_Coef
+ * Extract the coefficient information including confidence intervals
+ * @param mod_ds the model information
+ * @param level the significance value for the intervals
+ * @return the coefficient information for the model
  */
 EXPORT DATASET(Types.Full_Model_Coef)
-       ExtractBeta_full(DATASET(Core_Types.Layout_Model) mod_ds,
+       ExtractBeta_full(DATASET(Core_Types.Layout_Model2) mod,
                         REAL8 level=0.05):=FUNCTION
+  mod_ds := PROJECT(ML_Core.ModelOps2.ToNumericField(mod, [1]),
+                    TRANSFORM(Core_Types.Layout_Model, SELF:= LEFT));
   iv := mod_ds(id=id_base AND number=LR.Constants.base_ind_vars);
   no := mod_ds(id=id_base AND number=LR.Constants.base_obs);
   ivdf := JOIN(no, iv, LEFT.wi=RIGHT.wi, make_ivdf(LEFT,RIGHT), LOOKUP);

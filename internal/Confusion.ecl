@@ -1,3 +1,7 @@
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
 IMPORT ML_Core;
 IMPORT ML_Core.Types AS Core_Types;
 IMPORT $ AS LR;
@@ -17,17 +21,16 @@ Classify_Result:= Core_Types.Classify_Result;
 Confusion_Detail := Core_Types.Confusion_Detail;
 
 /**
-  * Generate the confusion matrix, to compare actual versus predicted response
-  * variable values.
-  * @param dependents the original response values.
-  * @param predicts the predicted responses.
-  * @return confusion matrix in Confusion_Detail format.
-  * @see ML_Core.Types.Confusion_Detail
-  */
+ * Detail confusion records to compare actual versus predicted response
+ * variable values.
+ * @param dependents the original response values
+ * @param predicts the predicted responses
+ * @return confusion counts by predicted and actual response values.
+ */
 EXPORT DATASET(Confusion_Detail)
        Confusion(DATASET(DiscreteField) dependents,
                  DATASET(DiscreteField) predicts) := FUNCTION
-
+  //
   Confusion_Detail score(DiscreteField y, DiscreteField p) := TRANSFORM
     SELF.classifier := y.number;
     SELF.actual_class := y.value;

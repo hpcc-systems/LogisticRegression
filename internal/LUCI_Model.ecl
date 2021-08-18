@@ -1,3 +1,7 @@
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
 IMPORT $ AS LR;
 IMPORT LR.Types;
 IMPORT Std.Str;
