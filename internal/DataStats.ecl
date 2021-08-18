@@ -1,3 +1,7 @@
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
 IMPORT $ AS LogisticRegression;
 IMPORT LogisticRegression.Types AS Types;
 IMPORT LogisticRegression.Constants AS Constants;
@@ -13,30 +17,29 @@ Flat_Field_Desc := RECORD(Types.Field_Desc)
 END;
 
 /**
-  * Produce summary information about the datasets.
-  * <p>When field_details = FALSE, indicates the range
-  * for the x and y (independent and dependent) columns.
-  * <p>When field_details = TRUE, the cardinality, minimum, and maximum
-  * values are returned.  A zero cardinality is returned when the field
-  * cardinality exceeds the Constants.limit_card value.
-  * <p>Note that
-  * a column of all zero values cannot be distinguished from a missing
-  * column.
-  *
-  * @param indep data set of independent variables.
-  * @param dep data set of dependent variables.
-  * @param field_details Boolean directive to provide field level info.
-  * @return a data set of information on each work item in Data_Info format.
-  * @see Types.Data_Info
-  * @see Constants.limit_card
-  */
+ * Information about the data sets.  Without details the range
+ *for the x and y (independent and dependent) columns.  Note that
+ *a column of all zero values cannot be distinguished from a missing
+ *column.
+ * When details are requested, the cardinality, minimum, and maximum
+ *values are returned.  A zero cardinality is returned when the field
+ *cardinality exceeds the Constants.limit_card value.
+ * @param indep data set of independent variables
+ * @param dep data set of dependent variables
+ * @param indep_details Boolean directive to provide field level info
+ * for the independent data
+ * @param dep_details Boolean directive to provide field level info for
+ * the dependent records.
+ * @returns a data set of information on each work item
+ */
 EXPORT DATASET(Types.Data_Info)
        DataStats(DATASET(Core_Types.NumericField) indep,
                   DATASET(Core_Types.DiscreteField) dep,
-                  BOOLEAN field_details=FALSE) := FUNCTION
+                  BOOLEAN indep_details=FALSE,
+                  BOOLEAN dep_details=FALSE) := FUNCTION
   // assemble details for independent and dependent data
   // dependent details, treat as roughly grouped by work item
-  l1_dep := GROUP(dep(field_details), wi, LOCAL);
+  l1_dep := GROUP(dep(dep_details), wi, ALL, LOCAL);
   l1_dep_srt := SORT(l1_dep, number , value);
   l1_dep_grp := GROUP(l1_dep_srt, number);
   l1_dep_sgl := DEDUP(l1_dep_grp, value);
@@ -50,15 +53,21 @@ EXPORT DATASET(Types.Data_Info)
                      {wi, number, min_value:=MIN(GROUP, min_v),
                       max_value:=MAX(GROUP, max_v)},
                      wi, number, FEW, UNSORTED);
-  l1_dep_cr := TABLE(l1_dep_top, {wi, number, card:=COUNT(GROUP)},
+  l1_dep_cr := TABLE(l1_dep_top,
+                     {wi, number, card:=COUNT(GROUP)},
                      wi, number, FEW, UNSORTED, LOCAL);
-  g1_dep_cr := TABLE(l1_dep_cr, {wi, number, cardinality:=SUM(GROUP,card)},
+  g1_dep_cr := TABLE(l1_dep_cr,
+                     {wi, number, cardinality:=SUM(GROUP,card),
+                      overs:=SUM(GROUP, IF(card>Constants.limit_card,1,0))},
                      wi, number, FEW, UNSORTED);
   g1_dep := JOIN(g1_dep_cr, g1_dep_mm,
                  LEFT.wi=RIGHT.wi AND LEFT.number=RIGHT.number,
-                 TRANSFORM(Flat_Field_Desc, SELF:=LEFT, SELF:=RIGHT));
+                 TRANSFORM(Flat_Field_Desc,
+                           SELF.cardinality:=IF(LEFT.overs>0, 0, LEFT.cardinality),
+                           SELF:=RIGHT));
+  dep_detail:=IF(dep_details, g1_dep, DATASET([],Flat_Field_Desc));
   // independent details, same treatment
-  l1_ind := GROUP(indep(field_details), wi, LOCAL);
+  l1_ind := GROUP(indep(indep_details), wi, ALL, LOCAL);
   l1_ind_srt := SORT(l1_ind, number , value);
   l1_ind_grp := GROUP(l1_ind_srt, number);
   l1_ind_sgl := DEDUP(l1_ind_grp, value);
@@ -74,12 +83,16 @@ EXPORT DATASET(Types.Data_Info)
                      wi, number, FEW, UNSORTED);
   l1_ind_cr := TABLE(l1_ind_top, {wi, number, card:=COUNT(GROUP)},
                      wi, number, FEW, UNSORTED, LOCAL);
-  g1_ind_cr := TABLE(l1_ind_cr, {wi, number, cardinality:=SUM(GROUP,card)},
+  g1_ind_cr := TABLE(l1_ind_cr,
+                     {wi, number, cardinality:=SUM(GROUP,card),
+                      overs:=SUM(GROUP, IF(card>Constants.limit_card,1,0))},
                      wi, number, FEW, UNSORTED);
   g1_ind := JOIN(g1_ind_cr, g1_ind_mm,
                  LEFT.wi=RIGHT.wi AND LEFT.number=RIGHT.number,
-                 TRANSFORM(Flat_Field_Desc, SELF:=LEFT, SELF:=RIGHT));
-
+                 TRANSFORM(Flat_Field_Desc,
+                           SELF.cardinality:=IF(LEFT.overs>0, 0, LEFT.cardinality),
+                           SELF:=RIGHT));
+  indep_detail := IF(indep_details, g1_ind, DATASET([], Flat_Field_Desc));
   // assemble summary work item data
   t_dep := TABLE(dep, {wi, dependent_fields:=MAX(GROUP, number),
                        dependent_records:=MAX(GROUP, id),
@@ -99,9 +112,9 @@ EXPORT DATASET(Types.Data_Info)
     SELF.independent_stats := IF(ind, stats, par.independent_stats);
     SELF := par;
   END;
-  d_added := DENORMALIZE(t, g1_dep(field_details), LEFT.wi=RIGHT.wi,
+  d_added := DENORMALIZE(t, dep_detail, LEFT.wi=RIGHT.wi,
                           GROUP, add_stats(LEFT, ROWS(RIGHT), FALSE));
-  i_added := DENORMALIZE(d_added, g1_ind(field_details), LEFT.wi=RIGHT.wi,
+  i_added := DENORMALIZE(d_added, indep_detail, LEFT.wi=RIGHT.wi,
                           GROUP, add_stats(LEFT, ROWS(RIGHT), TRUE));
   RETURN i_added;
 END;

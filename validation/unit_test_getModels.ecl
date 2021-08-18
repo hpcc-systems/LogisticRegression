@@ -1,4 +1,9 @@
-IMPORT $.^ AS LR;
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
+IMPORT $.^.internal AS LR;
+IMPORT LR.Types as Types;
 IMPORT ML_Core.Types AS Core_Types;
 NumericField := Core_Types.NumericField;
 DiscreteField := Core_Types.DiscreteField;

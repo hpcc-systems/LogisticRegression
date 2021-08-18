@@ -1,3 +1,7 @@
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
 IMPORT $ AS LR;
 IMPORT LR.Types AS Types;
 IMPORT ML_Core.Types AS Core_Types;
@@ -11,7 +15,7 @@ IMPORT ML_Core.Types AS Core_Types;
   * @see Types.pval_Model_Coef
   */
 EXPORT DATASET(Types.pval_Model_Coef)
-    ExtractBeta_pval(DATASET(Core_Types.Layout_Model) mod_ds):=FUNCTION
+    ExtractBeta_pval(DATASET(Core_Types.Layout_Model2) mod_ds):=FUNCTION
   ds := LR.ExtractBeta_full(mod_ds);
   rslt := PROJECT(ds, Types.pval_Model_Coef);
   RETURN rslt;

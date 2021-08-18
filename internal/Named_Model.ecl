@@ -1,5 +1,10 @@
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
 IMPORT $ AS LR;
 IMPORT LR.Types;
+IMPORT ML_Core.Types as CTypes;
 empty := DATASET([], Types.WorkItem_mapping);
 Ex_Model_Coef := RECORD(Types.Full_Model_Coef)
   BOOLEAN isIntercept;
@@ -14,28 +19,19 @@ nom_map cvt_map(Types.FieldName_Mapping name) := TRANSFORM
 END;
 
 /**
-  * Apply external labels for work items and field names to a model.
-  * <p>Returns an expanded model that includes:<ul>
-  * <li>coefficients</li>
-  * <li>z and p-values</li>
-  * <li>independent variable field names</li>
-  * <li>dependent variable field names</li>
-  * <li>work-item names</li></ul>
-  *
-  * @param mod_ds the model as returned from GetModel.
-  * @param expl_map the relation of the explanatory or independent variables
-  *         to the field names for those variables in FieldName_Mapping format.
-  * @param resp_map the relation of the response variable column
-  *                numbers to the field names in FieldName_Mapping format.
-  * @param wi_map (optional) mapping of workitem strings to workitem nominals in
-  *               FieldName_Mapping format.
-  * @param level (optional) value for confidence intervals. Default = 0.05.
-  * @return an expanded model in External_Model format.
-  * @see Types.FieldName_Mapping
-  * @see Types.External_Model
-  **/
+* Applies external labels for work items and field names.  Coefficients
+* are decorated with statistical information.
+* @param mod_ds the raw model file
+* @param expl_map the relation of the explanatory or independent variables
+* to the field names for those variables.
+* @param resp_map the relation of the response variable column
+* numbers to the field names
+* @param wi_map optional mapping of workitem strings to workitem nominals
+* @param level optional value for confidence intervals.
+* @return a coefficient dataset with external names applied.
+**/
 EXPORT DATASET(Types.External_Model)
-      Named_Model(DATASET(Types.Layout_Model) mod_ds,
+      Named_Model(DATASET(CTypes.Layout_Model2) mod_ds,
                   DATASET(Types.FieldName_Mapping) expl_map,
                   DATASET(Types.FieldName_Mapping) resp_map,
                   DATASET(Types.WorkItem_mapping) wi_map=empty,

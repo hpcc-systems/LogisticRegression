@@ -1,5 +1,9 @@
-IMPORT LogisticRegression AS LR;
-IMPORT LR.Types AS Types;
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
+IMPORT $.^.internal AS LR;
+IMPORT LR.Types as Types;
 IMPORT ML_Core;
 
 num_recs := 300;

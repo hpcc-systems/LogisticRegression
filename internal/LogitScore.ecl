@@ -1,3 +1,7 @@
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
 IMPORT $ AS LR;
 IMPORT LR.Types;
 IMPORT ML_Core.Types AS Core_Types;
@@ -10,12 +14,9 @@ Model_Coef := Types.Model_Coef;
 /**
  * Calculate the score using the logit function and the
  * the supplied beta coefficients.
- *
- * @param coef the model beta coefficients as returned from ExtractBetas.
- * @param independents the observations.
- * @return the raw prediction value in Raw_Prediction format.
- * @see ExtractBetas
- * @see Types.Raw_Prediction
+ * @param coef the model beta coefficients
+ * @param independents the observations
+ * @return the raw prediction value
  */
 EXPORT DATASET(Raw_Prediction)
       LogitScore(DATASET(Model_Coef) coef,

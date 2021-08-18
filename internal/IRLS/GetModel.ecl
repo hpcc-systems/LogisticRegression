@@ -1,6 +1,11 @@
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
 IMPORT ML_Core;
 IMPORT ML_Core.Types AS Core_Types;
 IMPORT $.^ AS LR;
+IMPORT LR.Types.Ind1 as idx;
 IMPORT LR.Constants;
 IMPORT LR.Types;
 IMPORT $ AS IRLS;
@@ -9,7 +14,7 @@ IMPORT STD.System.ThorLib;
 AnyField     := Core_Types.AnyField;
 NumericField := Core_Types.NumericField;
 DiscreteField:= Core_Types.DiscreteField;
-Layout_Model := Core_Types.Layout_Model;
+Layout_Model2 := Core_Types.Layout_Model2;
 t_work_item  := Core_Types.t_work_item;
 t_RecordID   := Core_Types.t_RecordID;
 t_FieldNumber := Core_Types.t_FieldNumber;
@@ -31,14 +36,14 @@ cap := Constants.local_cap;
  * a matrix help assure that the matrix is invertible.
  * @return coefficient matrix plus model building stats
  */
-EXPORT DATASET(Layout_Model)
+EXPORT DATASET(Layout_Model2)
       GetModel(DATASET(NumericField) independents,
                DATASET(DiscreteField) dependents,
                UNSIGNED max_iter=200,
                REAL8 epsilon=Constants.default_epsilon,
                REAL8 ridge=Constants.default_ridge) := FUNCTION
   // determine which work items are local versus global
-  stats := LR.DataStats(independents, dependents, FALSE);
+  stats := LR.DataStats(independents, dependents, FALSE, FALSE);
   wi_Map := RECORD
     t_work_item wi;
     BOOLEAN run_global;
@@ -84,7 +89,10 @@ EXPORT DATASET(Layout_Model)
                                      max_iter, epsilon, ridge);
   global_model:= IRLS.getModel_global(global_ind, global_dep,
                                       max_iter, epsilon, ridge);
-  rslt := IF(EXISTS(process_map(run_global)), global_model)
+  rslt0 := IF(EXISTS(process_map(run_global)), global_model)
         + IF(EXISTS(process_map(NOT run_global)), local_model);
-  RETURN rslt;
+  rslt := PROJECT(rslt0, TRANSFORM(Types.NumericField, SELF := LEFT));
+  modelType := DATASET([{0, 1, [idx.ifBinary]}], Core_Types.Layout_Model2);
+  toModel := ML_Core.ModelOps2.FromNumericField(rslt, [1]) + modelType;
+  RETURN toModel;
 END;
