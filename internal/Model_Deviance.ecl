@@ -1,3 +1,7 @@
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
 IMPORT $ AS LR;
 IMPORT LR.Types;
 
@@ -6,20 +10,11 @@ Dev_Rec := Types.Deviance_Record;
 Obs_Dev := Types.Observation_Deviance;
 
 /**
-  * Model Deviance Report.
-  * <p>Create a report of deviance information for a model.
-  *
-  * <p>Analysis of Deviance is analogous to the Analysis of Variance (ANOVA) used in
-  * least-squares modeling, but adapted to the general linear model (GLM).  In this case
-  * it is adapted specifically to the logistic model.
-  *
-  * @param od observation-deviance records, as obtained from a call to Deviance_Detail.
-  * @param mod model co-efficients records, as obtained from a call to ExtractBeta.
-  * @return model deviance in Deviance_Record format.
-  * @see Deviance_Detail
-  * @see ExtractBeta
-  * @see Types.Deviance_Record
-  */
+ * Model Deviance.
+ * @param od observation deviance record
+ * @param mod model co-efficients
+ * @return model deviance
+ */
 EXPORT DATASET(Types.Deviance_Record)
        Model_Deviance(DATASET(Types.Observation_Deviance) od,
                       DATASET(Types.Model_Coef) mod) := FUNCTION

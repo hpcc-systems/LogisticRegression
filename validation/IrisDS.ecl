@@ -1,4 +1,8 @@
-﻿IMPORT ML_Core;
+﻿/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
+IMPORT ML_Core;
 IMPORT ML_Core.Types;
 
 dsRecord := RECORD

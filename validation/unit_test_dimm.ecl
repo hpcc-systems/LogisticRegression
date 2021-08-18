@@ -1,4 +1,8 @@
-IMPORT $.^ AS LR;
+/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
+IMPORT $.^.internal AS LR;
 IMPORT Std.BLAS.Types AS Types;
 Types.matrix_t x := [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
 Types.matrix_t a2 := [2.0, 3.0];

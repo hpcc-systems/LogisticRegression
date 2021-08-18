@@ -1,4 +1,8 @@
-﻿IMPORT ML_Core.Types AS Types;
+﻿/*##################################################################################
+## HPCC SYSTEMS software Copyright (C) 2017,2021 HPCC Systems.  All rights reserved.
+################################################################################# */
+
+IMPORT ML_Core.Types AS Types;
 
 EXPORT discrete_GermanDS := MODULE
     SHARED discrete_GermanRECORD := RECORD

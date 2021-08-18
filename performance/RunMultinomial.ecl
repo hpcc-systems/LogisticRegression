@@ -7,25 +7,25 @@ num_work_items := 1;
 avg_size := 1000000;
 columns := 10;
 max_iterations := 20;
+num_classes := 3;
 //*******************************************************
 IMPORT $.^ AS LR;
 IMPORT $ AS Perf;
 IMPORT ML_Core.Types AS Core_Types;
 NumericField := Core_Types.NumericField;
 DiscreteField := Core_Types.DiscreteField;
-lcl := LR.internal.Constants.builder_irls_local;
-gbl := LR.internal.Constants.builder_irls_global;
 
-obs := Perf.GenData(num_work_items, columns, avg_size, 2, TRUE) : INDEPENDENT;
-resp_data := PROJECT(obs, TRANSFORM(DiscreteField, SELF:=LEFT.resp_var));
+// Generate data
+obs := Perf.GenData(num_work_items, columns, avg_size, num_classes, TRUE) : INDEPENDENT;
+resp_data := PROJECT(obs, TRANSFORM(DiscreteField, SELF.value := LEFT.resp_var.value + 1, SELF:=LEFT.resp_var));
 ind_data := NORMALIZE(obs, LEFT.explan_vars, TRANSFORM(NumericField, SELF:=RIGHT));
 
-L_BLR := LR.LogisticRegression(10);
-mod3 := L_BLR.GetModel(ind_data, resp_data);
-OUTPUT(mod3,NAMED('mod3'));
-pred3 :=L_BLR.classify(mod3, ind_data);
-OUTPUT(pred3,NAMED('pred3'));
-cf3 := L_BLR.ConfusionMatrix(mod3, resp_data, ind_data);
-OUTPUT(cf3,NAMED('cf3'));
-acc3:= L_BLR.accuracy(mod3, resp_data, ind_data);
-OUTPUT(acc3,NAMED('acc3'));
+// Run it
+LR_module := LR.LogisticRegression(max_iterations);
+mod := LR_module.GetModel(ind_data, resp_data);
+pred :=LR_module.classify(mod, ind_data);
+OUTPUT(pred,NAMED('pred'));
+acc:= LR_module.accuracy(mod, resp_data, ind_data);
+OUTPUT(acc,NAMED('acc'));
+cf := LR_module.ConfusionMatrix(mod, resp_data, ind_data);
+OUTPUT(cf,NAMED('cf'));
